@@ -1,0 +1,22 @@
+#cloud-config
+# DigitalOcean Droplet user data for sgeul.com (Ubuntu 24.04). Fetches the archive from GitHub and installs everything.
+package_update: true
+packages: [nginx, ffmpeg, curl, ca-certificates]
+runcmd:
+  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - apt-get install -y nodejs
+  - useradd --system --home /opt/sgeul --shell /usr/sbin/nologin sgeul || true
+  - mkdir -p /opt/sgeul /var/lib/sgeul/renders /var/lib/sgeul/media
+  - curl -fsSL -o /opt/sgeul/twelve-studio-v8.tgz https://raw.githubusercontent.com/mobilecdn/sgeul/main/twelve-studio-v8.tgz
+  - tar -xzf /opt/sgeul/twelve-studio-v8.tgz -C /opt/sgeul
+  - cd /opt/sgeul/twelve-studio && npm ci --omit=dev --ignore-scripts
+  - cp /opt/sgeul/twelve-studio/deploy/.env.production.example /opt/sgeul/twelve-studio/.env
+  - chown -R sgeul:sgeul /opt/sgeul /var/lib/sgeul
+  - install -m 644 /opt/sgeul/twelve-studio/deploy/sgeul.service /etc/systemd/system/sgeul.service
+  - install -m 644 /opt/sgeul/twelve-studio/deploy/nginx-sgeul.conf /etc/nginx/sites-available/sgeul.com
+  - ln -sf /etc/nginx/sites-available/sgeul.com /etc/nginx/sites-enabled/sgeul.com
+  - rm -f /etc/nginx/sites-enabled/default
+  - systemctl daemon-reload
+  - systemctl enable --now sgeul
+  - nginx -t && systemctl reload nginx
+  - touch /opt/sgeul/INSTALL_DONE
